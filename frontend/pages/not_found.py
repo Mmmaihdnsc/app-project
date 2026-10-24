@@ -1,14 +1,45 @@
-import customtkinter as ctk
+import tkinter as tk
 
-class NotFoundPage(ctk.CTkFrame):
+class NotFoundPage(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, fg_color="#121212")
+        super().__init__(parent, bg="#121212")
+        self.controller = controller
         
-        label = ctk.CTkLabel(self, text="404 - Not Found", font=ctk.CTkFont(size=32, weight="bold"), text_color="#FFFFFF")
+        label = tk.Label(
+            self,
+            text="404 - Not Found",
+            font=("Helvetica", 32, "bold"),
+            fg="#FFFFFF",
+            bg="#121212"
+        )
         label.pack(pady=(50, 20))
         
-        info = ctk.CTkLabel(self, text="This page has not been implemented yet.", font=ctk.CTkFont(size=16), text_color="#777777")
+        info = tk.Label(
+            self,
+            text="This page has not been implemented yet.",
+            font=("Helvetica", 16),
+            fg="#777777",
+            bg="#121212"
+        )
         info.pack(pady=20)
         
-        btn = ctk.CTkButton(self, text="← Back to Home", height=40, fg_color="#1A1A1A", hover_color="#2A2A2A", corner_radius=20, command=lambda: controller.show_frame("HomePage"))
+        btn = tk.Button(
+            self,
+            text="← Back to Home",
+            font=("Helvetica", 12, "bold"),
+            fg="#E6E6E6",
+            bg="#1A1A1A",
+            activebackground="#2A2A2A",
+            activeforeground="#FFFFFF",
+            relief="flat",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#242424",
+            cursor="hand2",
+            padx=24,
+            pady=10,
+            command=lambda: controller.show_frame("HomePage")
+        )
         btn.pack(pady=20)
+        btn.bind("<Enter>", lambda e: btn.configure(bg="#2A2A2A"))
+        btn.bind("<Leave>", lambda e: btn.configure(bg="#1A1A1A"))
