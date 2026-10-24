@@ -1,21 +1,24 @@
 import os
 import urllib.request
+import tkinter as tk
 from PIL import Image, ImageTk
 
 # Module-level cache to ensure tkinter never garbage-collects icons
-_ICON_CACHE: dict[tuple[str, str, int], ImageTk.PhotoImage] = {}
+_ICON_CACHE: dict[tuple[int, str, str, int], ImageTk.PhotoImage] = {}
 
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
-def load_icon(name: str, color: str = "777777", size: int = 48) -> ImageTk.PhotoImage:
+def load_icon(name: str, color: str = "777777", size: int = 48, master: tk.Misc | None = None) -> ImageTk.PhotoImage:
     """
     Downloads an icon from Icons8 if it doesn't exist, and returns a PIL ImageTk.PhotoImage.
     Resized via Image.Resampling.LANCZOS to (size, size).
     Caches loaded PhotoImage references in a module-level dictionary so tkinter never garbage-collects icons.
     """
     color_code = color.lstrip("#")
-    cache_key = (name, color_code.lower(), size)
+    active_master = master or getattr(tk, "_default_root", None)
+    master_id = id(active_master) if active_master is not None else 0
+    cache_key = (master_id, name, color_code.lower(), size)
     
     if cache_key in _ICON_CACHE:
         return _ICON_CACHE[cache_key]
@@ -35,7 +38,7 @@ def load_icon(name: str, color: str = "777777", size: int = 48) -> ImageTk.Photo
             # Fallback transparent placeholder if offline
             print(f"Warning: Failed to fetch icon '{name}': {e}")
             img = Image.new('RGBA', (size, size), color=(0, 0, 0, 0))
-            photo = ImageTk.PhotoImage(img)
+            photo = ImageTk.PhotoImage(img, master=active_master)
             _ICON_CACHE[cache_key] = photo
             return photo
 
@@ -43,12 +46,12 @@ def load_icon(name: str, color: str = "777777", size: int = 48) -> ImageTk.Photo
         img = Image.open(filepath).convert("RGBA")
         if img.size != (size, size):
             img = img.resize((size, size), Image.Resampling.LANCZOS)
-        photo = ImageTk.PhotoImage(img)
+        photo = ImageTk.PhotoImage(img, master=active_master)
         _ICON_CACHE[cache_key] = photo
         return photo
     except Exception as e:
         print(f"Error loading icon image '{filepath}': {e}")
         img = Image.new('RGBA', (size, size), color=(0, 0, 0, 0))
-        photo = ImageTk.PhotoImage(img)
+        photo = ImageTk.PhotoImage(img, master=active_master)
         _ICON_CACHE[cache_key] = photo
         return photo

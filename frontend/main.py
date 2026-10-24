@@ -6,14 +6,19 @@ import tkinter as tk
 # regardless of whether launched from workspace root or inside frontend/
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(CURRENT_DIR)
+REAL_CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+REAL_PARENT_DIR = os.path.dirname(REAL_CURRENT_DIR)
 
-for path in [PARENT_DIR, CURRENT_DIR]:
-    if path not in sys.path:
+for path in [
+    PARENT_DIR,
+    CURRENT_DIR,
+    REAL_PARENT_DIR,
+    REAL_CURRENT_DIR,
+    os.path.join(PARENT_DIR, "app-project"),
+    os.path.join(REAL_PARENT_DIR, "app-project"),
+]:
+    if os.path.exists(path) and path not in sys.path:
         sys.path.insert(0, path)
-
-app_project_path = os.path.join(PARENT_DIR, "app-project")
-if os.path.exists(app_project_path) and app_project_path not in sys.path:
-    sys.path.insert(0, app_project_path)
 
 from pages.home import HomePage
 from pages.settings import SettingsPage

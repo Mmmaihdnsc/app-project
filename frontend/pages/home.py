@@ -14,34 +14,36 @@ from PIL import Image, ImageTk
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.dirname(CURRENT_DIR)
 WORKSPACE_DIR = os.path.dirname(FRONTEND_DIR)
+REAL_CURRENT = os.path.dirname(os.path.realpath(__file__))
+REAL_FRONTEND = os.path.dirname(REAL_CURRENT)
+REAL_WORKSPACE = os.path.dirname(REAL_FRONTEND)
 
-for path in [WORKSPACE_DIR, FRONTEND_DIR, os.path.join(WORKSPACE_DIR, "app-project")]:
+for path in [
+    WORKSPACE_DIR,
+    FRONTEND_DIR,
+    REAL_WORKSPACE,
+    REAL_FRONTEND,
+    os.path.join(WORKSPACE_DIR, "app-project"),
+    os.path.join(REAL_WORKSPACE, "app-project"),
+]:
     if os.path.exists(path) and path not in sys.path:
         sys.path.insert(0, path)
 
 from utils.icon_loader import load_icon
 
 # Backend ML imports
-try:
-    from backend.hand_detector import HandDetector
-    from backend.classifier import SignClassifier
-    from backend.signs_data import (
-        ONE_HAND_LETTERS,
-        TWO_HAND_LETTERS,
-        distance,
-        compute_normalized_features,
-    )
-    from backend.train_model import train_all, COLLECTED_SAMPLES_FILE
-except ImportError:
-    from hand_detector import HandDetector
-    from classifier import SignClassifier
-    from signs_data import (
-        ONE_HAND_LETTERS,
-        TWO_HAND_LETTERS,
-        distance,
-        compute_normalized_features,
-    )
-    from train_model import train_all, COLLECTED_SAMPLES_FILE
+from backend.hand_detector import HandDetector
+from backend.classifier import SignClassifier
+from backend.signs_data import (
+    SIGNS,
+    ONE_HAND_LETTERS,
+    TWO_HAND_LETTERS,
+    distance,
+    angle,
+    compute_normalized_features,
+    validate_one_hand,
+)
+from backend.train_model import train_all, COLLECTED_SAMPLES_FILE
 
 
 def save_calibrated_batch(letter: str, batch_vecs: list[list[float]]) -> None:
@@ -269,7 +271,7 @@ class HomePage(tk.Frame):
         self.camera_sublabel.pack(pady=2)
 
         # Active Video Display Label
-        self.video_display_label = tk.Label(self.camera_panel, bg="#101010")
+        self.video_display_label = tk.Label(self.camera_panel, bg="#181818")
 
         # -------------------------------------------------------------
         # Right Top Panel (Letters / Words)
@@ -504,14 +506,14 @@ class HomePage(tk.Frame):
         status_footer = tk.Frame(self.sentence_panel, bg="#181818")
         status_footer.pack(fill="x", padx=20, pady=(2, 12))
 
-        tip_label = tk.Label(
+        self.tip_label = tk.Label(
             status_footer,
             text="💡 Auto-space after 1.6s pause | Hold sign 1.0s to append letter",
             font=("Helvetica", 9),
             fg="#555555",
             bg="#181818",
         )
-        tip_label.pack(side="left")
+        self.tip_label.pack(side="left")
 
     def _build_bottom_bar(self):
         """Constructs the START/STOP toggle, Language, and Record calibration buttons."""
@@ -589,24 +591,49 @@ class HomePage(tk.Frame):
         top.bind("<BackSpace>", self._handle_backspace_shortcut)
         top.bind("<c>", self._handle_calibrate_shortcut)
         top.bind("<C>", self._handle_calibrate_shortcut)
+        top.bind("<t>", self._handle_retrain_shortcut)
+        top.bind("<T>", self._handle_retrain_shortcut)
+        top.bind("<Escape>", self._handle_escape_shortcut)
 
     def _handle_space_shortcut(self, event):
+        if not self.winfo_ismapped():
+            return
         focused = self.focus_get()
         if isinstance(focused, tk.Entry):
             return
         self.commit_current_word()
 
     def _handle_backspace_shortcut(self, event):
+        if not self.winfo_ismapped():
+            return
         focused = self.focus_get()
         if isinstance(focused, tk.Entry):
             return
         self.delete_last_char_or_word()
 
     def _handle_calibrate_shortcut(self, event):
+        if not self.winfo_ismapped():
+            return
         focused = self.focus_get()
         if isinstance(focused, tk.Entry):
             return
         self.open_calibrate_prompt()
+
+    def _handle_retrain_shortcut(self, event):
+        if not self.winfo_ismapped():
+            return
+        focused = self.focus_get()
+        if isinstance(focused, tk.Entry):
+            return
+        self._trigger_background_retrain("Manual")
+
+    def _handle_escape_shortcut(self, event):
+        if not self.winfo_ismapped():
+            return
+        focused = self.focus_get()
+        if isinstance(focused, tk.Entry):
+            return
+        self.clear_all()
 
     # -------------------------------------------------------------------------
     # CAMERA & ML INTEGRATION LOOP
@@ -837,7 +864,8 @@ class HomePage(tk.Frame):
                 time_since_commit = curr_time - self.last_commit_time
 
                 if is_duplicate and time_since_commit < 1.2:
-                    # Duplicate letter cooldown active
+                    # Duplicate letter cooldown active (1.2s cooldown)
+                    self.dwell_start_time = curr_time
                     dwell_progress = 0.0
                 else:
                     dwell_progress = min(1.0, max(0.0, hold_duration / 1.0))
@@ -1108,6 +1136,17 @@ class HomePage(tk.Frame):
                 fg="#5E5E5E",
                 font=("Helvetica", 14),
             )
+
+        # Update tip or toast notification
+        if hasattr(self, "tip_label"):
+            curr_time = time.time()
+            if curr_time < self.status_toast_until:
+                self.tip_label.configure(text=f"✨ {self.status_toast}", fg="#00E676")
+            else:
+                self.tip_label.configure(
+                    text="💡 Auto-space after 1.6s pause | Hold sign 1.0s to append letter",
+                    fg="#555555",
+                )
 
     # -------------------------------------------------------------------------
     # WORD & SENTENCE MANIPULATION
